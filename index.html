@@ -2,59 +2,119 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard Sensores + Mapa</title>
+    <title>Dashboard Brechós SP + Sensores</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        body { margin: 0; font-family: Arial, sans-serif; }
-        #map { height: 60vh; }
-        #info { padding: 10px; background: #f8f8f8; font-size: 16px; }
-        .sensor { margin: 5px 0; }
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        #map { 
+            height: 65vh; 
+            width: 100%;
+            border-bottom: 2px solid #ccc;
+        }
+        #dashboard { 
+            display: flex;
+            flex-direction: column;
+            padding: 20px; 
+            background: #fff; 
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            border-top: 1px solid #ddd;
+        }
+        .sensor-card {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .sensor-card:last-child {
+            border-bottom: none;
+        }
+        .sensor-card span {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #555;
+            flex-grow: 1;
+        }
+        .sensor-icon {
+            font-size: 1.5em;
+            margin-right: 15px;
+            width: 30px;
+            text-align: center;
+        }
         .compass-arrow {
             display: inline-block;
             transform-origin: center;
-            font-size: 24px;
+            font-size: 1.5em;
             transition: transform 0.2s;
+        }
+        .user-icon {
+            background-color: #3498db;
+            color: white;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            text-align: center;
+            line-height: 24px;
+            font-size: 14px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div id="info">
-        <div class="sensor">📍 Localização: <span id="location">Aguardando...</span></div>
-        <div class="sensor">🧭 Bússola: <span id="compass">Aguardando...</span> <span class="compass-arrow" id="arrow">⬆️</span></div>
-        <div class="sensor">📐 Acelerômetro: <span id="motion">Aguardando...</span></div>
-        <div class="sensor">💡 Luz ambiente: <span id="light">Aguardando...</span></div>
+    <div id="dashboard">
+        <div class="sensor-card">
+            <span class="sensor-icon">📍</span>
+            <span>Localização: <span id="location">Aguardando...</span></span>
+        </div>
+        <div class="sensor-card">
+            <span class="sensor-icon">🧭</span>
+            <span>Bússola: <span id="compass">Aguardando...</span> <span class="compass-arrow" id="arrow">⬆️</span></span>
+        </div>
+        <div class="sensor-card">
+            <span class="sensor-icon">📐</span>
+            <span>Acelerômetro: <span id="motion">Aguardando...</span></span>
+        </div>
+        <div class="sensor-card">
+            <span class="sensor-icon">💡</span>
+            <span>Luz ambiente: <span id="light">Aguardando...</span></span>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         // ==== MAPA LEAFLET ====
-        // Define o ponto inicial do mapa para uma visualização global
-        const map = L.map('map').setView([0, 0], 2);
+        const saoPauloCoords = [-23.55052, -46.633308];
+        const map = L.map('map').setView(saoPauloCoords, 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
         const userIcon = L.divIcon({
-            html: "📍",
-            className: "user-icon",
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
+            html: `<div class="user-icon">Você</div>`,
+            className: 'custom-icon',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
         });
 
         const thriftStoreIcon = L.divIcon({
-            html: "🛍️",
-            className: "thrift-store-icon",
+            html: '<span style="font-size: 24px;">🛍️</span>',
+            className: 'thrift-store-icon',
             iconSize: [24, 24],
             iconAnchor: [12, 12]
         });
 
-        const marker = L.marker([0, 0], { icon: userIcon }).addTo(map);
+        const userMarker = L.marker([0, 0], { icon: userIcon }).addTo(map);
 
         function updateLocation(position) {
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
-            marker.setLatLng([lat, lon]);
+            userMarker.setLatLng([lat, lon]);
             map.setView([lat, lon], 16);
             document.getElementById("location").textContent = `Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)}`;
         }
@@ -69,26 +129,23 @@
             document.getElementById("location").textContent = "Geolocalização não suportada.";
         }
 
-        // ==== ADICIONAR BRECHÓS DIVERSOS ====
+        // ==== ADICIONAR BRECHÓS EM SÃO PAULO ====
         const thriftStores = [
-            // Brechós em São Paulo, Brasil
-            { name: "Capricho à Toa (SP)", lat: -23.5574, lon: -46.6713 },
-            { name: "Brechó da Neusa (SP)", lat: -23.5598, lon: -46.6669 },
-            // Brechós em Nova York, EUA
-            { name: "Beacon's Closet (NYC)", lat: 40.7188, lon: -73.9458 },
-            { name: "L Train Vintage (NYC)", lat: 40.7145, lon: -73.9482 },
-            // Brechós em Londres, Reino Unido
-            { name: "Beyond Retro (Londres)", lat: 51.5242, lon: -0.0733 },
-            { name: "Rokit Vintage (Londres)", lat: 51.5367, lon: -0.0768 },
-            // Brechós em Tóquio, Japão
-            { name: "KINJI Used Clothing (Tóquio)", lat: 35.6677, lon: 139.7042 },
-            { name: "Chicago Harajuku (Tóquio)", lat: 35.6703, lon: 139.7047 }
+            { name: "Capricho à Toa", lat: -23.5574, lon: -46.6713, address: "Rua Heitor Penteado, 1096 - Vila Madalena" },
+            { name: "Brechó da Neusa", lat: -23.5598, lon: -46.6669, address: "Rua Basílio da Gama, 29 - República" },
+            { name: "Minha Avó Tinha", lat: -23.5487, lon: -46.6578, address: "Rua Luís Murat, 308 - Pinheiros" },
+            { name: "Trash Chic", lat: -23.5573, lon: -46.6662, address: "Rua Augusta, 725 - Consolação" },
+            { name: "Peça Rara", lat: -23.5562, lon: -46.6657, address: "Rua Haddock Lobo, 920 - Jardins" },
+            { name: "Frou Frou Vintage", lat: -23.5516, lon: -46.6436, address: "Rua Augusta, 725 - Consolação" },
+            { name: "B. Luxo", lat: -23.5615, lon: -46.6641, address: "Rua Oscar Freire, 329 - Jardins" },
+            { name: "Vó Judith", lat: -23.5350, lon: -46.6781, address: "Rua Cayowaá, 2304 - Sumaré" },
+            { name: "Brechó Colmeia", lat: -23.5359, lon: -46.6540, address: "Rua Tupi, 32 - Santa Cecília" }
         ];
 
         thriftStores.forEach(store => {
             L.marker([store.lat, store.lon], { icon: thriftStoreIcon })
                 .addTo(map)
-                .bindPopup(`<b>${store.name}</b>`);
+                .bindPopup(`<b>${store.name}</b><br>${store.address}`);
         });
 
         // ==== BÚSSOLA ====
