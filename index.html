@@ -2,7 +2,7 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard Brechós SP + Sensores</title>
+    <title>Mapa Restaurantes Veganos SP + Sensores</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         body { 
@@ -10,19 +10,38 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background-color: #f0f2f5;
             color: #333;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #map-container {
+            flex-grow: 1;
+            height: 100%;
         }
         #map { 
-            height: 65vh; 
+            height: 100%; 
             width: 100%;
-            border-bottom: 2px solid #ccc;
         }
-        #dashboard { 
+        #sidebar {
+            width: 350px;
+            background: #fff;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
-            padding: 20px; 
-            background: #fff; 
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-            border-top: 1px solid #ddd;
+        }
+        #dashboard {
+            padding: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        #restaurants-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        h2 {
+            margin-top: 0;
+            color: #555;
+            font-size: 1.5em;
         }
         .sensor-card {
             display: flex;
@@ -34,25 +53,62 @@
             border-bottom: none;
         }
         .sensor-card span {
-            font-size: 1.2em;
+            font-size: 1em;
             font-weight: 600;
             color: #555;
-            flex-grow: 1;
         }
         .sensor-icon {
-            font-size: 1.5em;
+            font-size: 1.2em;
             margin-right: 15px;
-            width: 30px;
+            width: 25px;
             text-align: center;
         }
         .compass-arrow {
             display: inline-block;
             transform-origin: center;
-            font-size: 1.5em;
+            font-size: 1.2em;
             transition: transform 0.2s;
         }
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .restaurant-item {
+            cursor: pointer;
+            padding: 12px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            transition: background-color 0.2s ease;
+        }
+        .restaurant-item:hover {
+            background-color: #e9e9e9;
+        }
+        .restaurant-item h3 {
+            margin: 0 0 5px 0;
+            font-size: 1.1em;
+            color: #444;
+        }
+        .restaurant-item p {
+            margin: 0;
+            font-size: 0.9em;
+            color: #777;
+        }
         .user-icon {
-            background-color: #3498db;
+            background-color: #2e8b57; /* Um tom de verde para combinar com o tema */
+            color: white;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            text-align: center;
+            line-height: 24px;
+            font-size: 14px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        }
+        .restaurant-icon {
+            background-color: #ff6347; /* Um laranja vibrante para destaque */
             color: white;
             border: 2px solid white;
             border-radius: 50%;
@@ -66,23 +122,32 @@
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div id="dashboard">
-        <div class="sensor-card">
-            <span class="sensor-icon">📍</span>
-            <span>Localização: <span id="location">Aguardando...</span></span>
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+    <div id="sidebar">
+        <div id="dashboard">
+            <h2>Dashboard</h2>
+            <div class="sensor-card">
+                <span class="sensor-icon">📍</span>
+                <span>Localização: <span id="location">Aguardando...</span></span>
+            </div>
+            <div class="sensor-card">
+                <span class="sensor-icon">🧭</span>
+                <span>Bússola: <span id="compass">Aguardando...</span> <span class="compass-arrow" id="arrow">⬆️</span></span>
+            </div>
+            <div class="sensor-card">
+                <span class="sensor-icon">📐</span>
+                <span>Acelerômetro: <span id="motion">Aguardando...</span></span>
+            </div>
+            <div class="sensor-card">
+                <span class="sensor-icon">💡</span>
+                <span>Luz ambiente: <span id="light">Aguardando...</span></span>
+            </div>
         </div>
-        <div class="sensor-card">
-            <span class="sensor-icon">🧭</span>
-            <span>Bússola: <span id="compass">Aguardando...</span> <span class="compass-arrow" id="arrow">⬆️</span></span>
-        </div>
-        <div class="sensor-card">
-            <span class="sensor-icon">📐</span>
-            <span>Acelerômetro: <span id="motion">Aguardando...</span></span>
-        </div>
-        <div class="sensor-card">
-            <span class="sensor-icon">💡</span>
-            <span>Luz ambiente: <span id="light">Aguardando...</span></span>
+        <div id="restaurants-list">
+            <h2>Restaurantes Veganos</h2>
+            <ul id="restaurant-ul"></ul>
         </div>
     </div>
 
@@ -97,16 +162,16 @@
 
         const userIcon = L.divIcon({
             html: `<div class="user-icon">Você</div>`,
-            className: 'custom-icon',
+            className: '',
             iconSize: [40, 40],
             iconAnchor: [20, 20]
         });
 
-        const thriftStoreIcon = L.divIcon({
-            html: '<span style="font-size: 24px;">🛍️</span>',
-            className: 'thrift-store-icon',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
+        const restaurantIcon = L.divIcon({
+            html: `<div class="restaurant-icon">🍽️</div>`,
+            className: '',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
         });
 
         const userMarker = L.marker([0, 0], { icon: userIcon }).addTo(map);
@@ -129,23 +194,38 @@
             document.getElementById("location").textContent = "Geolocalização não suportada.";
         }
 
-        // ==== ADICIONAR BRECHÓS EM SÃO PAULO ====
-        const thriftStores = [
-            { name: "Capricho à Toa", lat: -23.5574, lon: -46.6713, address: "Rua Heitor Penteado, 1096 - Vila Madalena" },
-            { name: "Brechó da Neusa", lat: -23.5598, lon: -46.6669, address: "Rua Basílio da Gama, 29 - República" },
-            { name: "Minha Avó Tinha", lat: -23.5487, lon: -46.6578, address: "Rua Luís Murat, 308 - Pinheiros" },
-            { name: "Trash Chic", lat: -23.5573, lon: -46.6662, address: "Rua Augusta, 725 - Consolação" },
-            { name: "Peça Rara", lat: -23.5562, lon: -46.6657, address: "Rua Haddock Lobo, 920 - Jardins" },
-            { name: "Frou Frou Vintage", lat: -23.5516, lon: -46.6436, address: "Rua Augusta, 725 - Consolação" },
-            { name: "B. Luxo", lat: -23.5615, lon: -46.6641, address: "Rua Oscar Freire, 329 - Jardins" },
-            { name: "Vó Judith", lat: -23.5350, lon: -46.6781, address: "Rua Cayowaá, 2304 - Sumaré" },
-            { name: "Brechó Colmeia", lat: -23.5359, lon: -46.6540, address: "Rua Tupi, 32 - Santa Cecília" }
+        // ==== RESTAURANTES VEGANOS/VEGETARIANOS EM SÃO PAULO ====
+        const restaurants = [
+            { name: "Mug. Cozinha Vegana e Vegetariana", lat: -23.5574, lon: -46.6713, address: "Rua Heitor Penteado, 1096 - Vila Madalena" },
+            { name: "Banana Verde Restaurante", lat: -23.5852, lon: -46.6775, address: "Rua Harmonia, 116 - Sumaré" },
+            { name: "Prime Dog", lat: -23.5658, lon: -46.6575, address: "Rua Augusta, 1066 - Consolação" },
+            { name: "Pop Vegan Food", lat: -23.5415, lon: -46.6394, address: "Rua Fernando de Albuquerque, 237 - Consolação" },
+            { name: "Maoz Vegetarian", lat: -23.5606, lon: -46.6565, address: "Rua Augusta, 1420 - Consolação" },
+            { name: "Barão Natural", lat: -23.5516, lon: -46.6436, address: "Av. Barão de Limeira, 187 - Campos Elíseos" },
+            { name: "Quincho", lat: -23.5707, lon: -46.6750, address: "Rua Mourato Coelho, 1447 - Pinheiros" },
+            { name: "Broto de Bambu", lat: -23.5681, lon: -46.6719, address: "Rua Artur de Azevedo, 230 - Pinheiros" },
+            { name: "Casa Jaya", lat: -23.5510, lon: -46.6800, address: "Rua Capote Valente, 305 - Pinheiros" },
+            { name: "Temakeria & Cia (Opções Veganas)", lat: -23.5579, lon: -46.6579, address: "Rua Frei Caneca, 1007 - Cerqueira César" }
         ];
 
-        thriftStores.forEach(store => {
-            L.marker([store.lat, store.lon], { icon: thriftStoreIcon })
+        const markers = {};
+        const restaurantListUl = document.getElementById('restaurant-ul');
+
+        restaurants.forEach(rest => {
+            const marker = L.marker([rest.lat, rest.lon], { icon: restaurantIcon })
                 .addTo(map)
-                .bindPopup(`<b>${store.name}</b><br>${store.address}`);
+                .bindPopup(`<b>${rest.name}</b><br>${rest.address}`);
+            
+            markers[rest.name] = marker;
+
+            const listItem = document.createElement('li');
+            listItem.className = 'restaurant-item';
+            listItem.innerHTML = `<h3>${rest.name}</h3><p>${rest.address}</p>`;
+            listItem.addEventListener('click', () => {
+                map.setView([rest.lat, rest.lon], 16);
+                marker.openPopup();
+            });
+            restaurantListUl.appendChild(listItem);
         });
 
         // ==== BÚSSOLA ====
