@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Sensores + Mapa</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; }
+    #map { height: 60vh; }
+    #info { padding: 10px; background: #f8f8f8; font-size: 16px; }
+    .sensor { margin: 5px 0; }
+    .compass-arrow {
+      display: inline-block;
+      transform-origin: center;
+      font-size: 24px;
+      transition: transform 0.2s;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="info">
+    <div class="sensor">📍 Localização: <span id="location">Aguardando...</span></div>
+    <div class="sensor">🧭 Bússola: <span id="compass">Aguardando...</span> <span class="compass-arrow" id="arrow">⬆️</span></div>
+    <div class="sensor">📐 Acelerômetro: <span id="motion">Aguardando...</span></div>
+    <div class="sensor">💡 Luz ambiente: <span id="light">Aguardando...</span></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // ==== MAPA LEAFLET ====
+    const map = L.map('map').setView([0, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const userIcon = L.divIcon({
+      html: "📍",
+      className: "user-icon",
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+
+    const marker = L.marker([0, 0], { icon: userIcon }).addTo(map);
+
+    function updateLocation(position) {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      marker.setLatLng([lat, lon]);
+      map.setView([lat, lon], 16);
+      document.getElementById("location").textContent = `Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)}`;
+    }
+
+    function error(err) {
+      document.getElementById("location").textContent = "Erro: " + err.message;
+    }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(updateLocation, error, { enableHighAccuracy: true });
+    } else {
+      document.getElementById("location").textContent = "Geolocalização não suportada.";
+    }
+
+    // ==== BÚSSOLA ====
+    if (window.DeviceOrientationEvent) {
+      window.addEventListener("deviceorientation", function(event) {
+        if (event.absolute || event.webkitCompassHeading !== undefined) {
+          const heading = event.webkitCompassHeading || 360 - event.alpha;
+          document.getElementById("compass").textContent = heading.toFixed(2) + "°";
+          document.getElementById("arrow").style.transform = `rotate(${heading}deg)`;
+        }
+      }, true);
+    } else {
+      document.getElementById("compass").textContent = "Não suportado.";
+    }
+
+    // ==== ACELERÔMETRO ====
+    if (window.DeviceMotionEvent) {
+      window.addEventListener("devicemotion", function(event) {
+        const x = event.acceleration.x || 0;
+        const y = event.acceleration.y || 0;
+        const z = event.acceleration.z || 0;
+        document.getElementById("motion").textContent =
+          `X: ${x.toFixed(2)}, Y: ${y.toFixed(2)}, Z: ${z.toFixed(2)}`;
+      });
+    } else {
+      document.getElementById("motion").textContent = "Não suportado.";
+    }
+
+    // ==== SENSOR DE LUZ ====
+    if ('AmbientLightSensor' in window) {
+      try {
+        const sensor = new AmbientLightSensor();
+        sensor.addEventListener('reading', () => {
+          document.getElementById("light").textContent = sensor.illuminance + " lux";
+        });
+        sensor.start();
+      } catch (err) {
+        document.getElementById("light").textContent = "Erro: " + err.message;
+      }
+    } else {
+      document.getElementById("light").textContent = "Não suportado.";
+    }
+  </script>
+</body>
+</html>
